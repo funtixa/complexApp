@@ -44,34 +44,47 @@ Post.prototype.validate = function(){
     if(this.data.body == "") {this.errors.push("Musisz coś naskrobać ;P")}
 }
 
-Post.findSingleById = function(id){
+Post.reusabePostQuery = function(uniqueOperations, visitorId){
+    return new Promise(async function(resolve, reject) {
+        let aggOperations = uniqueOperations.concat([
+            {$lookup: {from: "users", localField: "author", foreignField: "_id", as: "authorDocument"}},
+            {$project:{
+                title : 1,
+                body: 1,
+                createdDate: 1,
+                authorId: "$author",
+                author: {$arrayElemAt: ["$authorDocument", 0]}
+            }}
+        ])
+        let posts = await postsCollection.aggregate(aggOperations).toArray()
+
+        //clean author property in each post object
+
+        posts = posts.map(function(post){
+            post.isVisitorOwner = post.authorId.equals(visitorId)
+            post.author = {
+                
+
+                username: post.author.username,
+                avatar: new User(post.author, true).avatar
+            }
+            return post
+        })
+        
+        resolve(posts)
+    })
+}
+
+Post.findSingleById = function(id, visitorId){
     return new Promise(async function(resolve, reject) {
         if (typeof(id) != "string" || !ObjectID.isValid(id)) {
             reject()
                 return
             
         }
-        let posts = await postsCollection.aggregate([
-            {$match: {_id: new ObjectID(id)}},
-            {$lookup: {from: "users", localField: "author", foreignField: "_id", as: "authorDocument"}},
-            {$project:{
-                title : 1,
-                body: 1,
-                createdDate: 1,
-                author: {$arrayElemAt: ["$authorDocument", 0]}
-            }}
-        ]).toArray()
-
-        //clean author property in each post object
-
-        posts = posts.map(function(post){
-            post.author = {
-                username: post.author.username,
-                avatar: new User(post.author, true).avatar
-            }
-            return post
-        })
-
+        let posts = await Post.reusabePostQuery([
+            {$match: {_id: new ObjectID(id)}}
+        ], visitorId)
         if (posts.length) {
             console.log(posts[0])
             resolve(posts[0])
@@ -81,6 +94,11 @@ Post.findSingleById = function(id){
     })
 }
 
-
+Post.findByAuthorId = function(authorId){
+    return Post.reusabePostQuery([
+        {$match: {author: authorId}},
+        {$sort: {createdDate: 1}}
+    ])
+}
 
 module.exports = Post
