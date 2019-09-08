@@ -1,6 +1,7 @@
 const postsCollection = require('../db').db().collection("posts")
 const ObjectID = require('mongodb').ObjectID
 const User = require('./User')
+const sanitizeHTML = require("sanitize-html")
 
 let Post = function(data, userid, requestedPostId){
     this.data = data
@@ -15,8 +16,8 @@ Post.prototype.create = function(){
         this.validate()
         if (!this.errors.length) {
             // save post into DB
-            postsCollection.insertOne(this.data).then(() => {
-                resolve()
+            postsCollection.insertOne(this.data).then((info) => {
+                resolve(info.ops[0]._id)
             }).catch(() => {
                 this.errors.push("Spróbuj proszę później")
                 reject(this.errors)
@@ -32,8 +33,8 @@ Post.prototype.cleanUp = function(){
 
     // get rid of any bogus properties
   this.data = {
-    title: this.data.title.trim(),
-    body: this.data.body.trim(),
+    title: sanitizeHTML(this.data.title.trim(), {allowedTags: [], allowedAttributes: []}),
+    body: sanitizeHTML(this.data.body.trim(), {allowedTags: [], allowedAttributes: []}),
     createdDate : new Date(),
     author: ObjectID(this.userid)                 // <--  Js ma wbudowany construktor Date który można użyć
    }
@@ -50,8 +51,8 @@ Post.prototype.update = function(){
             let post = await Post.findSingleById(this.requestedPostId, this.userid)
             if (post.isVisitorOwner){
                 // actualy update to db
-                await this.actuallyUpdate()
-                resolve()
+                let status = await this.actuallyUpdate()
+                resolve(status)
             } else{
                 reject()
             }
@@ -61,18 +62,19 @@ Post.prototype.update = function(){
     })
 }
 
-Post.prototype.actuallyUpdate = function(){
-    return new Promise(async(resolve, reject) => {
-        this.cleanUp()
-        this.validate()
-        if (!this.errors.length){
-            await postsCollection.findOneAndUpdate({_id: new ObjectID(this.requestedPostId)}, {$set: {title: this.data.title, body: this.data.body}})
-            resolve("Success.")
-        } else {
-            resolve("Failure.")
-        }
+
+Post.prototype.actuallyUpdate = function() {
+    return new Promise(async (resolve, reject) => {
+      this.cleanUp()
+      this.validate()
+      if (!this.errors.length) {
+        await postsCollection.findOneAndUpdate({_id: new ObjectID(this.requestedPostId)}, {$set: {title: this.data.title, body: this.data.body}})
+        resolve("success")
+      } else {
+        resolve("failure")
+      }
     })
-}
+  }
 
 Post.reusabePostQuery = function(uniqueOperations, visitorId){
     return new Promise(async function(resolve, reject) {
@@ -93,9 +95,7 @@ Post.reusabePostQuery = function(uniqueOperations, visitorId){
         posts = posts.map(function(post){
             post.isVisitorOwner = post.authorId.equals(visitorId)
             post.author = {
-                
-
-                username: post.author.username,
+                 username: post.author.username,
                 avatar: new User(post.author, true).avatar
             }
             return post
@@ -109,7 +109,6 @@ Post.findSingleById = function(id, visitorId){
         if (typeof(id) != "string" || !ObjectID.isValid(id)) {
             reject()
                 return
-            
         }
         let posts = await Post.reusabePostQuery([
             {$match: {_id: new ObjectID(id)}}
@@ -129,5 +128,20 @@ Post.findByAuthorId = function(authorId){
         {$sort: {createdDate: 1}}
     ])
 }
+ Post.delete = function(postIdToDelete, currentUserId){
+     return new Promise(async(resolve, reject) => {
+        try{
+            let post = await Post.findSingleById(postIdToDelete, currentUserId)
+            if (post.isVisitorOwner){
+                await postsCollection.deleteOne({_id: new ObjectID(postIdToDelete)})
+                resolve()
+            }else{
+                reject()
+            }
+        } catch {
+            reject()
+        }
+     })
+ }
 
 module.exports = Post
