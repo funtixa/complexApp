@@ -2,10 +2,11 @@ const postsCollection = require('../db').db().collection("posts")
 const ObjectID = require('mongodb').ObjectID
 const User = require('./User')
 
-let Post = function(data, userid){
+let Post = function(data, userid, requestedPostId){
     this.data = data
     this.errors = []
     this.userid = userid
+    this.requestedPostId = requestedPostId
 }
 
 Post.prototype.create = function(){
@@ -20,7 +21,6 @@ Post.prototype.create = function(){
                 this.errors.push("Spróbuj proszę później")
                 reject(this.errors)
             })
-            
         }else{
             reject(this.errors)
         }
@@ -42,6 +42,36 @@ Post.prototype.cleanUp = function(){
 Post.prototype.validate = function(){
     if(this.data.title == "") {this.errors.push("Musisz podać tytuł")}
     if(this.data.body == "") {this.errors.push("Musisz coś naskrobać ;P")}
+}
+
+Post.prototype.update = function(){
+    return new Promise(async (resolve, reject) =>{
+       try{
+            let post = await Post.findSingleById(this.requestedPostId, this.userid)
+            if (post.isVisitorOwner){
+                // actualy update to db
+                await this.actuallyUpdate()
+                resolve()
+            } else{
+                reject()
+            }
+       } catch {
+            reject()
+       }
+    })
+}
+
+Post.prototype.actuallyUpdate = function(){
+    return new Promise(async(resolve, reject) => {
+        this.cleanUp()
+        this.validate()
+        if (!this.errors.length){
+            await postsCollection.findOneAndUpdate({_id: new ObjectID(this.requestedPostId)}, {$set: {title: this.data.title, body: this.data.body}})
+            resolve("Success.")
+        } else {
+            resolve("Failure.")
+        }
+    })
 }
 
 Post.reusabePostQuery = function(uniqueOperations, visitorId){
@@ -70,7 +100,6 @@ Post.reusabePostQuery = function(uniqueOperations, visitorId){
             }
             return post
         })
-        
         resolve(posts)
     })
 }

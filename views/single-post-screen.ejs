@@ -1,6 +1,9 @@
 <%- include('includes/header')%>
 
 <div class="container py-md-5 container--narrow">
+
+    <%- include('includes/flash') %>
+
     <div class="d-flex justify-content-between">
       <h2><%= post.title %></h2>
       <% if (post.isVisitorOwner) { %>
@@ -15,8 +18,8 @@
     </div>
       
     <p class="text-muted small mb-4">
-      <a href="#"><img class="avatar-tiny" src=" <%= post.author.avatar %> "> </a>
-      Posted by <a href="#"><%= post.author.username %></a> on <%= post.createdDate.getMonth() +1 %>/<%= post.createdDate.getDate() %>/<%= post.createdDate.getFullYear() %></p>
+      <a href="#"><img class="avatar-tiny" src=" <%= post.author.avatar %>" href="/profile/<%= user.username %>"> </a>
+      Posted by <a href="/profile/<%= user.username %>"><%= post.author.username %></a> on <%= post.createdDate.getMonth() +1 %>/<%= post.createdDate.getDate() %>/<%= post.createdDate.getFullYear() %></p>
 
     <div class="body-content">
             <%= post.body %>
