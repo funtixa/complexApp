@@ -19,7 +19,7 @@ Post.prototype.create = function(){
             postsCollection.insertOne(this.data).then((info) => {
                 resolve(info.ops[0]._id)
             }).catch(() => {
-                this.errors.push("Spróbuj proszę później")
+                this.errors.push("Try again later.")
                 reject(this.errors)
             })
         }else{
@@ -143,5 +143,19 @@ Post.findByAuthorId = function(authorId){
         }
      })
  }
+
+Post.search = function(searchTerm) {
+    return new Promise(async (resolve, reject) => {
+        if (typeof(searchTerm) == "string") {
+            let posts =await Post.reusabePostQuery([
+                {$match: {$text: {$search: searchTerm}}},
+                {$sort: {score: {$meta: "textScore"}}}
+            ])
+            resolve(posts)
+        } else {
+            reject()
+        }
+    })
+}
 
 module.exports = Post

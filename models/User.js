@@ -28,14 +28,14 @@ User.prototype.cleanUp = function() {
 
 User.prototype.validate = function(){
     return new Promise(async (resolve, reject) => {
-        if (this.data.username == ""){this.errors.push("Musisz wypełnić to pole. ")}
-        if (validator.isEmail(this.data.email) == ""){this.errors.push("Musisz wprowadzić poprawny adres email.")}
+        if (validator.isEmail(this.data.email) == "")                                 {this.errors.push("Musisz wprowadzić poprawny adres email.")}
+        if (this.data.username == "")                                                 {this.errors.push("Musisz wypełnić to pole. ")}
         if (this.data.username != "" && !validator.isAlphanumeric(this.data.username)){this.errors.push("Nazwa użytkownika a-z 0-9.")}
-        if (this.data.password == "") {this.errors.push("You must provide a password.")}
-        if (this.data.password.length > 0 && this.data.password.length < 6) {this.errors.push("Password must be at least 6 characters.")}
-        if (this.data.password.length > 50) {this.errors.push("Password cannot exceed 50 characters.")}
-        if (this.data.username.length > 0 && this.data.username.length < 3){this.errors.push("Nazwa użytkownika musi posiadać co najmniej 12 znaków")}
-        if (this.data.username.length >30){this.errors.push("Nazwa użytkownika nie może być dłuższa niż 30 znaków.")}
+        if (this.data.username.length > 0 && this.data.username.length < 3)           {this.errors.push("Nazwa użytkownika musi posiadać co najmniej 12 znaków")}
+        if (this.data.username.length >30)                                            {this.errors.push("Nazwa użytkownika nie może być dłuższa niż 30 znaków.")}
+        if (this.data.password == "")                                                 {this.errors.push("You must provide a password.")}
+        if (this.data.password.length > 0 && this.data.password.length < 6)           {this.errors.push("Password must be at least 6 characters.")}
+        if (this.data.password.length > 50)                                           {this.errors.push("Password cannot exceed 50 characters.")}
     
         //only if username is valid check to see if its already taken
         if (this.data.username.length > 2 && this.data.username.length < 31 && validator.isAlphanumeric(this.data.username)){
