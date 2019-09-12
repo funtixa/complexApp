@@ -3,14 +3,14 @@ const ObjectID = require('mongodb').ObjectID
 const User = require('./User')
 const sanitizeHTML = require("sanitize-html")
 
-let Post = function(data, userid, requestedPostId){
+let Post = function (data, userid, requestedPostId) {
     this.data = data
     this.errors = []
     this.userid = userid
     this.requestedPostId = requestedPostId
 }
 
-Post.prototype.create = function(){
+Post.prototype.create = function () {
     return new Promise((resolve, reject) => {
         this.cleanUp()
         this.validate()
@@ -22,80 +22,112 @@ Post.prototype.create = function(){
                 this.errors.push("Try again later.")
                 reject(this.errors)
             })
-        }else{
+        } else {
             reject(this.errors)
         }
     })
 }
-Post.prototype.cleanUp = function(){
-    if (typeof(this.data.title) != "string") {this.data.title = ""}
-    if (typeof(this.data.body) != "string") {this.data.body = ""}  
+Post.prototype.cleanUp = function () {
+    if (typeof (this.data.title) != "string") {
+        this.data.title = ""
+    }
+    if (typeof (this.data.body) != "string") {
+        this.data.body = ""
+    }
 
     // get rid of any bogus properties
-  this.data = {
-    title: sanitizeHTML(this.data.title.trim(), {allowedTags: [], allowedAttributes: []}),
-    body: sanitizeHTML(this.data.body.trim(), {allowedTags: [], allowedAttributes: []}),
-    createdDate : new Date(),
-    author: ObjectID(this.userid)                 // <--  Js ma wbudowany construktor Date który można użyć
-   }
+    this.data = {
+        title: sanitizeHTML(this.data.title.trim(), {
+            allowedTags: [],
+            allowedAttributes: []
+        }),
+        body: sanitizeHTML(this.data.body.trim(), {
+            allowedTags: [],
+            allowedAttributes: []
+        }),
+        createdDate: new Date(),
+        author: ObjectID(this.userid) // <--  Js ma wbudowany construktor Date który można użyć
+    }
 }
 
-Post.prototype.validate = function(){
-    if(this.data.title == "") {this.errors.push("Musisz podać tytuł")}
-    if(this.data.body == "") {this.errors.push("Musisz coś naskrobać ;P")}
+Post.prototype.validate = function () {
+    if (this.data.title == "") {
+        this.errors.push("Musisz podać tytuł")
+    }
+    if (this.data.body == "") {
+        this.errors.push("Musisz coś naskrobać ;P")
+    }
 }
 
-Post.prototype.update = function(){
-    return new Promise(async (resolve, reject) =>{
-       try{
+Post.prototype.update = function () {
+    return new Promise(async (resolve, reject) => {
+        try {
             let post = await Post.findSingleById(this.requestedPostId, this.userid)
-            if (post.isVisitorOwner){
+            if (post.isVisitorOwner) {
                 // actualy update to db
                 let status = await this.actuallyUpdate()
                 resolve(status)
-            } else{
+            } else {
                 reject()
             }
-       } catch {
+        } catch {
             reject()
-       }
+        }
     })
 }
 
 
-Post.prototype.actuallyUpdate = function() {
+Post.prototype.actuallyUpdate = function () {
     return new Promise(async (resolve, reject) => {
-      this.cleanUp()
-      this.validate()
-      if (!this.errors.length) {
-        await postsCollection.findOneAndUpdate({_id: new ObjectID(this.requestedPostId)}, {$set: {title: this.data.title, body: this.data.body}})
-        resolve("success")
-      } else {
-        resolve("failure")
-      }
+        this.cleanUp()
+        this.validate()
+        if (!this.errors.length) {
+            await postsCollection.findOneAndUpdate({
+                _id: new ObjectID(this.requestedPostId)
+            }, {
+                $set: {
+                    title: this.data.title,
+                    body: this.data.body
+                }
+            })
+            resolve("success")
+        } else {
+            resolve("failure")
+        }
     })
-  }
+}
 
-Post.reusabePostQuery = function(uniqueOperations, visitorId){
-    return new Promise(async function(resolve, reject) {
-        let aggOperations = uniqueOperations.concat([
-            {$lookup: {from: "users", localField: "author", foreignField: "_id", as: "authorDocument"}},
-            {$project:{
-                title : 1,
+Post.reusabePostQuery = function (uniqueOperations, visitorId) {
+    return new Promise(async function (resolve, reject) {
+        let aggOperations = uniqueOperations.concat([{
+            $lookup: {
+                from: "users",
+                localField: "author",
+                foreignField: "_id",
+                as: "authorDocument"
+            }
+        },
+        {
+            $project: {
+                title: 1,
                 body: 1,
                 createdDate: 1,
                 authorId: "$author",
-                author: {$arrayElemAt: ["$authorDocument", 0]}
-            }}
+                author: {
+                    $arrayElemAt: ["$authorDocument", 0]
+                }
+            }
+        }
         ])
         let posts = await postsCollection.aggregate(aggOperations).toArray()
 
         //clean author property in each post object
 
-        posts = posts.map(function(post){
+        posts = posts.map(function (post) {
             post.isVisitorOwner = post.authorId.equals(visitorId)
+            post.authorId = undefined                                       // usuwa authorID z posta
             post.author = {
-                 username: post.author.username,
+                username: post.author.username,
                 avatar: new User(post.author, true).avatar
             }
             return post
@@ -104,15 +136,17 @@ Post.reusabePostQuery = function(uniqueOperations, visitorId){
     })
 }
 
-Post.findSingleById = function(id, visitorId){
-    return new Promise(async function(resolve, reject) {
-        if (typeof(id) != "string" || !ObjectID.isValid(id)) {
+Post.findSingleById = function (id, visitorId) {
+    return new Promise(async function (resolve, reject) {
+        if (typeof (id) != "string" || !ObjectID.isValid(id)) {
             reject()
-                return
+            return
         }
-        let posts = await Post.reusabePostQuery([
-            {$match: {_id: new ObjectID(id)}}
-        ], visitorId)
+        let posts = await Post.reusabePostQuery([{
+            $match: {
+                _id: new ObjectID(id)
+            }
+        }], visitorId)
         if (posts.length) {
             console.log(posts[0])
             resolve(posts[0])
@@ -122,34 +156,54 @@ Post.findSingleById = function(id, visitorId){
     })
 }
 
-Post.findByAuthorId = function(authorId){
-    return Post.reusabePostQuery([
-        {$match: {author: authorId}},
-        {$sort: {createdDate: 1}}
+Post.findByAuthorId = function (authorId) {
+    return Post.reusabePostQuery([{
+        $match: {
+            author: authorId
+        }
+    },
+    {
+        $sort: {
+            createdDate: 1
+        }
+    }
     ])
 }
- Post.delete = function(postIdToDelete, currentUserId){
-     return new Promise(async(resolve, reject) => {
-        try{
+Post.delete = function (postIdToDelete, currentUserId) {
+    return new Promise(async (resolve, reject) => {
+        try {
             let post = await Post.findSingleById(postIdToDelete, currentUserId)
-            if (post.isVisitorOwner){
-                await postsCollection.deleteOne({_id: new ObjectID(postIdToDelete)})
+            if (post.isVisitorOwner) {
+                await postsCollection.deleteOne({
+                    _id: new ObjectID(postIdToDelete)
+                })
                 resolve()
-            }else{
+            } else {
                 reject()
             }
         } catch {
             reject()
         }
-     })
- }
+    })
+}
 
-Post.search = function(searchTerm) {
+Post.search = function (searchTerm) {
     return new Promise(async (resolve, reject) => {
-        if (typeof(searchTerm) == "string") {
-            let posts =await Post.reusabePostQuery([
-                {$match: {$text: {$search: searchTerm}}},
-                {$sort: {score: {$meta: "textScore"}}}
+        if (typeof (searchTerm) == "string") {
+            let posts = await Post.reusabePostQuery([{
+                $match: {
+                    $text: {
+                        $search: searchTerm
+                    }
+                }
+            },
+            {
+                $sort: {
+                    score: {
+                        $meta: "textScore"
+                    }
+                }
+            }
             ])
             resolve(posts)
         } else {
