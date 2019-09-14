@@ -2,7 +2,7 @@ const User = require('../models/User')
 const Post = require('../models/Post')
 const Follow = require('../models/Follow')
 
-exports.sharedProfileData = async function(req, res, next) {
+exports.sharedProfileData = async function (req, res, next) {
   let isVisitorsProfile = false
   let isFollowing = false
   if (req.session.user) {
@@ -15,12 +15,12 @@ exports.sharedProfileData = async function(req, res, next) {
   next()
 }
 
-exports.mustBeLoggedIn = function(req, res, next) {
+exports.mustBeLoggedIn = function (req, res, next) {
   if (req.session.user) {
     next()
   } else {
     req.flash("errors", "You must be logged in to perform that action.")
-    req.session.save(function() {
+    req.session.save(function () {
       res.redirect('/')
     })
   }
@@ -105,4 +105,19 @@ exports.profilePostsScreen = function (req, res) {
   }).catch(function () {
     res.render("404")
   })
+}
+
+exports.profileFollowersScreen = async function(req, res) {
+  try {
+    let followers = await Follow.getFollowersById(req.profileUser._id)
+    res.render('profile-followers', {
+      followers: followers,
+      profileUsername: req.profileUser.username,
+      profileAvatar: req.profileUser.avatar,
+      isFollowing: req.isFollowing,
+      isVisitorsProfile: req.isVisitorsProfile
+    })
+  } catch {
+    res.render("404")
+  }
 }

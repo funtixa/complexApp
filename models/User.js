@@ -76,7 +76,7 @@ User.prototype.register = function(){
         await this.validate()
         
       
-        // Step #2: Only if there are no validation errors 
+        // Step #2: Only if there are no validation errors
         if(!this.errors.length){
             // hash user password
             let salt = bcrypt.genSaltSync(10)
